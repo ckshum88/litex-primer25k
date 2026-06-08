@@ -140,8 +140,13 @@ def pmod_led(conn="j4"):
 
 def pmod_dt(conn="j5"):
     return [
-        ("pmod_dt", 0,
-            Pins(f"{conn}:7 {conn}:4 {conn}:0 {conn}:1 {conn}:5 {conn}:3 {conn}:2 {conn}:6"),
+        ("display", 0,
+            Subsignal("cs", 
+                Pins(f"{conn}:7")
+            ),
+            Subsignal("abcdefg",
+                Pins(f"{conn}:5 {conn}:1 {conn}:0 {conn}:6 {conn}:2 {conn}:3 {conn}:4")
+            ),
             IOStandard("LVCMOS33")
         ),
     ]

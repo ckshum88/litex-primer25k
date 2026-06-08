@@ -18,10 +18,12 @@ from litex.soc.cores.clock.gowin_gw5a import GW5APLL
 from litex.soc.integration.soc import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.led import LedChaser
-from litex.soc.cores.gpio import GPIOIn, GPIOOut
+from litex.soc.cores.gpio import GPIOIn
 
 from litedram.modules import AS4C32M16, W9825G6KH6
 from litedram.phy import GENSDRPHY, HalfRateGENSDRPHY
+
+from display import SevenSegmentDisplay
 
 from platforms import sipeed_tang_primer_25k
 
@@ -137,10 +139,19 @@ class BaseSoC(SoCCore):
             self.buttons = GPIOIn(pads=platform.request("btn_n", 1))
 
         # Pmods ------------------------------------------------------------------------------------
-        platform.add_extension(sipeed_tang_primer_25k.pmod_dt())
-        self.pmod_dt = GPIOOut(pads=platform.request("pmod_dt"))
+#        platform.add_extension(sipeed_tang_primer_25k.pmod_dt())
+#        self.pmod_dt = GPIOOut(pads=platform.request("pmod_dt"))
         platform.add_extension(sipeed_tang_primer_25k.pmod_btn())
         self.pmod_btn = GPIOIn(pads=~platform.request_all("pmod_btn"))
+
+        # SevenSegmentDisplay
+        platform.add_extension(sipeed_tang_primer_25k.pmod_dt())
+        display_pads=platform.request("display")
+        self.submodules.display = SevenSegmentDisplay(sys_clk_freq)
+        self.comb += [
+            display_pads.cs.eq(~self.display.cs),
+            display_pads.abcdefg.eq(~self.display.abcdefg)
+        ]
 
 # Build --------------------------------------------------------------------------------------------
 
