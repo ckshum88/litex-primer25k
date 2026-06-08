@@ -88,6 +88,9 @@ static void help(void)
 #ifdef CSR_LEDS_BASE
 	puts("led                - Led demo");
 #endif
+#ifdef CSR_DISPLAY_BASE
+	puts("display <value>    - Show decimal value on seven segment display");
+#endif
 	puts("helloc             - Hello C");
 	puts("pmod               - Test pmod buttons and leds");
 }
@@ -153,6 +156,34 @@ static void pmod(void)
 	}
 
 }
+
+#ifdef CSR_DISPLAY_BASE
+static void display_cmd(char *args)
+{
+	char *token;
+	char *endptr;
+	unsigned long value;
+	uint32_t bcd;
+
+	token = get_token(&args);
+	if(token[0] == 0) {
+		printf("Usage: display <0-99>\n");
+		return;
+	}
+
+	value = strtoul(token, &endptr, 0);
+	if((endptr == token) || (*endptr != 0) || (value > 99)) {
+		printf("Invalid display value: %s\n", token);
+		printf("Usage: display <0-99>\n");
+		return;
+	}
+
+	bcd = ((value / 10) << 4) | (value % 10);
+	display_value_write(bcd);
+	display_write_write(1);
+}
+#endif
+
 extern void helloc(void);
 
 static void helloc_cmd(void)
@@ -184,6 +215,10 @@ static void console_service(void)
 		helloc_cmd();
 	else if(strcmp(token, "pmod") == 0)
 		pmod();
+#ifdef CSR_DISPLAY_BASE
+	else if(strcmp(token, "display") == 0)
+		display_cmd(str);
+#endif
 	prompt();
 }
 
