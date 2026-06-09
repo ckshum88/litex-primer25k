@@ -57,7 +57,8 @@ class _SevenSegmentDisplay(Module):
         self.comb += self.abcdefg.eq(seven_segment.abcdefg)
 
         # Create a tick every cs_period
-        self.submodules.tick = Tick(sys_clk_freq, cs_period)
+        tick = Tick(sys_clk_freq, cs_period)
+        self.submodules += tick
 
         # Toggle cs bit signals to alternate seven segments
         # cycle 0 : 0b0
@@ -65,7 +66,7 @@ class _SevenSegmentDisplay(Module):
         cs = Signal(1, reset=0b0)
         # Synchronous assignment
         self.sync += [
-            If(self.tick.ce,     # At the next tick:
+            If(tick.ce,     # At the next tick:
                 cs.eq(~cs)       # toggle bit value
             )
         ]
@@ -96,7 +97,7 @@ class SevenSegmentDisplay(Module, AutoCSR):
 
         # Create _SevenSegmentDisplay module
         display = _SevenSegmentDisplay(sys_clk_freq)
-        self.submodules += display
+        self.submodules += display # pyright: ignore[reportOperatorIssue]
         self.comb += [
             self.cs.eq(display.cs),
             self.abcdefg.eq(display.abcdefg)

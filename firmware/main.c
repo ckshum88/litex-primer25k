@@ -89,10 +89,10 @@ static void help(void)
 	puts("led                - Led demo");
 #endif
 #ifdef CSR_DISPLAY_BASE
-	puts("display <value>    - Show decimal value on seven segment display");
+	puts("display <value>    - Show hex value on seven segment display");
 #endif
 	puts("helloc             - Hello C");
-	puts("pmod               - Test pmod buttons and leds");
+	puts("calc               - Calculate with PMODs");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -136,50 +136,27 @@ static void led_cmd(void)
 }
 #endif
 
-static void pmod(void)
-{
-	printf("Pmod test...\n");
-
-	uint8_t inputs;
-	while( !buttons_in_read() ) {
-		inputs = pmod_btn_in_read();
-		printf("buttons = 0x%02x\n", inputs);
-		// 2. Check if the very first button/switch (Bit 0) is pressed
-		if (inputs != 0) {
-			// Drive the onboard LED register HIGH (all bits on)
-			leds_out_write(inputs);
-		} else {
-			// Turn the LED off
-			leds_out_write(0x00);
-		}
-		busy_wait(100);
-	}
-
-}
-
 #ifdef CSR_DISPLAY_BASE
 static void display_cmd(char *args)
 {
 	char *token;
 	char *endptr;
 	unsigned long value;
-	uint32_t bcd;
 
 	token = get_token(&args);
 	if(token[0] == 0) {
-		printf("Usage: display <0-99>\n");
+		printf("Usage: display <0-0xff>\n");
 		return;
 	}
 
 	value = strtoul(token, &endptr, 0);
-	if((endptr == token) || (*endptr != 0) || (value > 99)) {
+	if((endptr == token) || (*endptr != 0) || (value > 0xff)) {
 		printf("Invalid display value: %s\n", token);
-		printf("Usage: display <0-99>\n");
+		printf("Usage: display <0-0xff>\n");
 		return;
 	}
 
-	bcd = ((value / 10) << 4) | (value % 10);
-	display_value_write(bcd);
+	display_value_write(value);
 	display_write_write(1);
 }
 #endif
@@ -190,6 +167,14 @@ static void helloc_cmd(void)
 {
 	printf("Hello C demo...\n");
 	helloc();
+}
+
+extern void calc(void);
+
+static void calc_cmd(void)
+{
+	printf("Calc demo...\n");
+	calc();
 }
 
 /* Console service / Main                                                */
@@ -213,11 +198,13 @@ static void console_service(void)
 #endif
 	else if(strcmp(token, "helloc") == 0)
 		helloc_cmd();
-	else if(strcmp(token, "pmod") == 0)
-		pmod();
 #ifdef CSR_DISPLAY_BASE
 	else if(strcmp(token, "display") == 0)
 		display_cmd(str);
+#ifdef CSR_PMOD_BTN_BASE
+	else if(strcmp(token, "calc") == 0)
+		calc_cmd();
+#endif
 #endif
 	prompt();
 }

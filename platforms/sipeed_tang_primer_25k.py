@@ -154,7 +154,7 @@ def pmod_dt(conn="j5"):
 def pmod_btn(conn="j6"):
     return [
         ("pmod_btn", 0, 
-            Pins(f"{conn}:3 {conn}:2 {conn}:5 {conn}:4 {conn}:7 {conn}:6 {conn}:1 {conn}:0"),
+            Pins(f"{conn}:4 {conn}:5 {conn}:2 {conn}:3 {conn}:0 {conn}:1 {conn}:6 {conn}:7"),
             IOStandard("LVCMOS33")
         ),
     ]
