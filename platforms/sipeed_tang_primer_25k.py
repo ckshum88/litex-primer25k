@@ -159,6 +159,22 @@ def pmod_btn(conn="j6"):
         ),
     ]
 
+def pmod_hdmi(conn="j4"):
+    return[
+    # HDMI.
+        ("hdmi", 0,
+            Subsignal("clk_p",   Pins(f"{conn}:3"), IOStandard("LVCMOS33D")),
+            Subsignal("clk_n",   Pins(f"{conn}:7"), IOStandard("LVCMOS33D")),
+            Subsignal("data0_p", Pins(f"{conn}:2"), IOStandard("LVCMOS33D")),
+            Subsignal("data0_n", Pins(f"{conn}:6"), IOStandard("LVCMOS33D")),
+            Subsignal("data1_p", Pins(f"{conn}:1"), IOStandard("LVCMOS33D")),
+            Subsignal("data1_n", Pins(f"{conn}:5"), IOStandard("LVCMOS33D")),
+            Subsignal("data2_p", Pins(f"{conn}:0"), IOStandard("LVCMOS33D")),
+            Subsignal("data2_n", Pins(f"{conn}:4"), IOStandard("LVCMOS33D")),
+            Misc("PULL_MODE=NONE DRIVE=8")
+        ),
+    ]
+
 # SDRAMs -------------------------------------------------------------------------------------------
 
 def misterSDRAM(conn="j3"):
@@ -224,8 +240,8 @@ class Platform(GowinPlatform):
 
         self.toolchain.options["use_mspi_as_gpio"]  = 1 # spi flash
         self.toolchain.options["use_i2c_as_gpio"]   = 1 # SDRAM / J3
-        self.toolchain.options["use_ready_as_gpio"] = 0 # led
-        self.toolchain.options["use_done_as_gpio"]  = 0 # led
+        self.toolchain.options["use_ready_as_gpio"] = 1 # led
+        self.toolchain.options["use_done_as_gpio"]  = 1 # led
         self.toolchain.options["use_cpu_as_gpio"]   = 1 # clk
         self.toolchain.options["rw_check_on_ram"]   = 1
 

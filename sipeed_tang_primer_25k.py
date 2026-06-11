@@ -19,6 +19,7 @@ from litex.soc.integration.soc import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.led import LedChaser
 from litex.soc.cores.gpio import GPIOIn
+from litex.soc.cores.video import *
 
 from litedram.modules import AS4C32M16, W9825G6KH6
 from litedram.phy import GENSDRPHY, HalfRateGENSDRPHY
@@ -30,7 +31,11 @@ from platforms import sipeed_tang_primer_25k
 # CRG ----------------------------------------------------------------------------------------------
 
 class _CRG(LiteXModule):
-    def __init__(self, platform, sys_clk_freq, with_sdram=False, sdram_rate="1:2"):
+    def __init__(self, platform, sys_clk_freq, 
+        with_sdram=False, 
+        sdram_rate="1:2",
+        with_video_pll = False,
+        ):
         self.rst    = Signal()
         self.cd_sys = ClockDomain()
         self.cd_por = ClockDomain()
@@ -64,6 +69,19 @@ class _CRG(LiteXModule):
         pll.register_clkin(clk50, 50e6)
         pll.create_clkout(self.cd_sys, sys_clk_freq)
 
+        # Video Clock
+        if with_video_pll:
+            self.cd_hdmi   = ClockDomain()
+            self.cd_hdmi5x = ClockDomain()
+            pll.create_clkout(self.cd_hdmi5x, 125e6, margin=1e-3)
+            self.specials += Instance("CLKDIV",
+                p_DIV_MODE = "5",
+                i_HCLKIN   = self.cd_hdmi5x.clk,
+                i_RESETN   = 1, # Disable reset signal.
+                i_CALIB    = 0, # No calibration.
+                o_CLKOUT   = self.cd_hdmi.clk
+            )
+
         # SDRAM clock
         if with_sdram:
             if sdram_rate == "1:2":
@@ -85,6 +103,8 @@ class BaseSoC(SoCCore):
         with_sdram      = False,
         sdram_model     = "sipeed",
         sdram_rate      = "1:2",
+        with_video_terminal  = False,
+        with_video_colorbars = False,
         **kwargs):
 
         platform = sipeed_tang_primer_25k.Platform(toolchain=toolchain)
@@ -98,7 +118,11 @@ class BaseSoC(SoCCore):
             )
 
         # CRG --------------------------------------------------------------------------------------
-        self.crg = _CRG(platform, sys_clk_freq, with_sdram, sdram_rate)
+        self.crg = _CRG(platform, sys_clk_freq,
+            with_sdram, 
+            sdram_rate,
+            with_video_pll = with_video_terminal or with_video_colorbars,
+        )
 
         # SoCCore ----------------------------------------------------------------------------------
         SoCCore.__init__(self, platform, sys_clk_freq, ident="LiteX SoC on Tang Primer 25K", **kwargs)
@@ -125,11 +149,20 @@ class BaseSoC(SoCCore):
             from litespi.opcodes import SpiNorFlashOpCodes as Codes
             self.add_spi_flash(mode="1x", module=SpiFlashModule(Codes.READ_1_1_1))
 
+        # Video ------------------------------------------------------------------------------------
+        if with_video_terminal or with_video_colorbars:
+            platform.add_extension(sipeed_tang_primer_25k.pmod_hdmi())
+            hdmi_pads = platform.request("hdmi")
+            self.videophy = VideoGowinHDMIPHY(hdmi_pads, clock_domain="hdmi")
+            if with_video_colorbars:
+                self.add_video_colorbars(phy=self.videophy, timings="640x480@60Hz", clock_domain="hdmi")
+            if with_video_terminal:
+                self.add_video_terminal(phy=self.videophy, timings="640x480@75Hz", clock_domain="hdmi")
+
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
-            platform.add_extension(sipeed_tang_primer_25k.pmod_led())
             self.leds = LedChaser(
-                pads         = platform.request_all("pmod_led"),
+                pads         = platform.request_all("led"),
                 sys_clk_freq = sys_clk_freq,
                 polarity     = 1
             )
@@ -139,8 +172,6 @@ class BaseSoC(SoCCore):
             self.buttons = GPIOIn(pads=platform.request("btn_n", 1))
 
         # Pmods ------------------------------------------------------------------------------------
-#        platform.add_extension(sipeed_tang_primer_25k.pmod_dt())
-#        self.pmod_dt = GPIOOut(pads=platform.request("pmod_dt"))
         platform.add_extension(sipeed_tang_primer_25k.pmod_btn())
         self.pmod_btn = GPIOIn(pads=~platform.request_all("pmod_btn"))
 
@@ -161,17 +192,26 @@ def main():
     parser.add_target_argument("--flash",            action="store_true",      help="Flash bitstream.")
     parser.add_target_argument("--sys-clk-freq",     default=50e6, type=float, help="System clock frequency.")
     parser.add_target_argument("--with-spi-flash",   action="store_true",      help="Enable memory-mapped SPI flash.")
+    
+    # Memory.
     parser.add_target_argument("--with-sdram",       action="store_true",      help="Enable optional SDRAM module.")
     parser.add_target_argument("--sdram-model",      default="sipeed",
         choices=[
             "sipeed",
             "mister"
     ], help="SDRAM module model.")
+    
+    # Video.
+    viopts = parser.target_group.add_mutually_exclusive_group()
+    viopts.add_argument("--with-video-colorbars",   action="store_true", help="Enable Video ColoBars (HDMI).")
+    viopts.add_argument("--with-video-terminal",    action="store_true", help="Enable Video Terminal (HDMI).")
     args = parser.parse_args()
 
     soc = BaseSoC(
         toolchain      = args.toolchain,
         sys_clk_freq   = args.sys_clk_freq,
+        with_video_colorbars   = args.with_video_colorbars,
+        with_video_terminal    = args.with_video_terminal,
         with_spi_flash = args.with_spi_flash,
         with_sdram     = args.with_sdram,
         sdram_model    = args.sdram_model,
