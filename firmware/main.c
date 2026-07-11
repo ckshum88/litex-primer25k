@@ -1,8 +1,9 @@
 // This file is Copyright (c) 2020 Florent Kermarrec <florent@enjoy-digital.fr>
 // License: BSD
 //
-// Modified by Alfred Shum (https://github.com/ckshum88) on 7/6/2026
+// Modified by Alfred Shum (https://github.com/ckshum88) on 11/7/2026
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,11 @@
 #include <libbase/uart.h>
 #include <libbase/console.h>
 #include <generated/csr.h>
+
+extern void helloc(void);
+extern void calc(void);
+extern void display_hex(uint32_t value);
+char *get_token(char **str);
 
 /*-----------------------------------------------------------------------*/
 /* Uart                                                                  */
@@ -54,7 +60,7 @@ static char *readstr(void)
 	return NULL;
 }
 
-static char *get_token(char **str)
+char *get_token(char **str)
 {
 	char *c, *d;
 
@@ -88,7 +94,7 @@ static void help(void)
 #ifdef CSR_LEDS_BASE
 	puts("led                - Led demo");
 #endif
-#ifdef CSR_DISPLAY_BASE
+#if defined(CSR_DISPLAY_BASE) || defined(CSR_TM1638_BASE)
 	puts("display <value>    - Show hex value on seven segment display");
 #endif
 	puts("helloc             - Hello C");
@@ -102,6 +108,12 @@ static void help(void)
 static void reboot_cmd(void)
 {
 	ctrl_reset_write(1);
+}
+
+static void helloc_cmd(void)
+{
+	printf("Hello C demo...\n");
+	helloc();
 }
 
 #ifdef CSR_LEDS_BASE
@@ -136,46 +148,39 @@ static void led_cmd(void)
 }
 #endif
 
-#ifdef CSR_DISPLAY_BASE
+#if defined(CSR_DISPLAY_BASE) || defined(CSR_TM1638_BASE)
 static void display_cmd(char *args)
 {
 	char *token;
 	char *endptr;
-	unsigned long value;
+	uint32_t value;
 
+	printf("Display demo...\n");
 	token = get_token(&args);
 	if(token[0] == 0) {
-		printf("Usage: display <0-0xff>\n");
+		printf("Usage: display <value>\n");
 		return;
 	}
 
 	value = strtoul(token, &endptr, 0);
-	if((endptr == token) || (*endptr != 0) || (value > 0xff)) {
+	if((endptr == token) || (*endptr != 0) || (value > 0xffffffff)) {
 		printf("Invalid display value: %s\n", token);
-		printf("Usage: display <0-0xff>\n");
+		printf("Usage: display <value>\n");
 		return;
 	}
 
-	display_value_write(value);
-	display_write_write(1);
-}
-#endif
-
-extern void helloc(void);
-
-static void helloc_cmd(void)
-{
-	printf("Hello C demo...\n");
-	helloc();
+	display_hex(value);
 }
 
-extern void calc(void);
-
+#ifdef CSR_PMOD_BTN_BASE
 static void calc_cmd(void)
 {
 	printf("Calc demo...\n");
 	calc();
 }
+#endif
+
+#endif
 
 /* Console service / Main                                                */
 /*-----------------------------------------------------------------------*/
@@ -192,13 +197,13 @@ static void console_service(void)
 		help();
 	else if(strcmp(token, "reboot") == 0)
 		reboot_cmd();
+	else if(strcmp(token, "helloc") == 0)
+		helloc_cmd();
 #ifdef CSR_LEDS_BASE
 	else if(strcmp(token, "led") == 0)
 		led_cmd();
 #endif
-	else if(strcmp(token, "helloc") == 0)
-		helloc_cmd();
-#ifdef CSR_DISPLAY_BASE
+#if defined(CSR_DISPLAY_BASE) || defined(CSR_TM1638_BASE)
 	else if(strcmp(token, "display") == 0)
 		display_cmd(str);
 #ifdef CSR_PMOD_BTN_BASE

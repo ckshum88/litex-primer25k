@@ -3,7 +3,7 @@ BUILD_DIR?=$(firstword $(wildcard ../build/*))
 include $(BUILD_DIR)/software/include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-OBJECTS   = helloc.o calc.o crt0.o main.o
+OBJECTS   = helloc.o calc.o crt0.o display.o main.o
 
 COMMA = ,
 REGULAR_LIBS = $(filter-out $(ALWAYS_LINK_LIBS),$(LIBS))

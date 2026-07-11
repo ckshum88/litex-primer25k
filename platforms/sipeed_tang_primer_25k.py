@@ -160,7 +160,7 @@ def pmod_btn(conn="j6"):
     ]
 
 def pmod_hdmi(conn="j4"):
-    return[
+    return [
     # HDMI.
         ("hdmi", 0,
             Subsignal("clk_p",   Pins(f"{conn}:3"), IOStandard("LVCMOS33D")),
@@ -172,6 +172,18 @@ def pmod_hdmi(conn="j4"):
             Subsignal("data2_p", Pins(f"{conn}:0"), IOStandard("LVCMOS33D")),
             Subsignal("data2_n", Pins(f"{conn}:4"), IOStandard("LVCMOS33D")),
             Misc("PULL_MODE=NONE DRIVE=8")
+        ),
+    ]
+
+# Other peripherals
+
+def tm1638_io(conn="j5"):
+    return [
+        ("tm1638", 0,
+            Subsignal("stb", Pins(f"{conn}:7")),
+            Subsignal("clk", Pins(f"{conn}:6")),
+            Subsignal("dio", Pins(f"{conn}:5")),
+            IOStandard("LVCMOS33")
         ),
     ]
 

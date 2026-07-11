@@ -19,12 +19,13 @@ from litex.soc.integration.soc import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.led import LedChaser
 from litex.soc.cores.gpio import GPIOIn
-from litex.soc.cores.video import *
+from litex.soc.cores.video import VideoGowinHDMIPHY
 
 from litedram.modules import AS4C32M16, W9825G6KH6
 from litedram.phy import GENSDRPHY, HalfRateGENSDRPHY
 
-from display import SevenSegmentDisplay
+from pmod_dt import SevenSegmentDisplay
+from tm1638 import TM1638
 
 from platforms import sipeed_tang_primer_25k
 
@@ -103,6 +104,8 @@ class BaseSoC(SoCCore):
         with_sdram      = False,
         sdram_model     = "sipeed",
         sdram_rate      = "1:2",
+        with_display    = False,
+        display_type    = "pmod",
         with_video_terminal  = False,
         with_video_colorbars = False,
         **kwargs):
@@ -110,6 +113,7 @@ class BaseSoC(SoCCore):
         platform = sipeed_tang_primer_25k.Platform(toolchain=toolchain)
 
         assert not with_sdram or (sdram_model in ["sipeed", "mister"])
+        assert not with_display or (display_type in ["pmod", "tm1638"])
 
         if with_sdram:
             platform.add_extension({
@@ -161,8 +165,13 @@ class BaseSoC(SoCCore):
 
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
+            if (not with_video_terminal) and (not with_video_colorbars):
+                platform.add_extension(sipeed_tang_primer_25k.pmod_led())
+                led_pads = platform.request_all("pmod_led")
+            else:
+                led_pads = platform.request_all("led")
             self.leds = LedChaser(
-                pads         = platform.request_all("led"),
+                pads         = led_pads,
                 sys_clk_freq = sys_clk_freq,
                 polarity     = 1
             )
@@ -171,19 +180,27 @@ class BaseSoC(SoCCore):
         if with_buttons:
             self.buttons = GPIOIn(pads=platform.request("btn_n", 1))
 
-        # Pmods ------------------------------------------------------------------------------------
-        platform.add_extension(sipeed_tang_primer_25k.pmod_btn())
-        self.pmod_btn = GPIOIn(pads=~platform.request_all("pmod_btn"))
+            platform.add_extension(sipeed_tang_primer_25k.pmod_btn())
+            self.pmod_btn = GPIOIn(pads=~platform.request_all("pmod_btn"))
 
-        # SevenSegmentDisplay
-        platform.add_extension(sipeed_tang_primer_25k.pmod_dt())
-        display_pads=platform.request("display")
-        self.submodules.display = SevenSegmentDisplay(sys_clk_freq)
-        self.comb += [
-            display_pads.cs.eq(~self.display.cs),
-            display_pads.abcdefg.eq(~self.display.abcdefg)
-        ]
+        # Displays ------------------------------------------------------------------------------------
+        if with_display:
+            # SevenSegmentDisplay
+            if display_type == "pmod":
+                platform.add_extension(sipeed_tang_primer_25k.pmod_dt())
+                display_pads=platform.request("display")
+                self.submodules.display = SevenSegmentDisplay(sys_clk_freq)
+                self.comb += [
+                    display_pads.cs.eq(~self.display.cs),
+                    display_pads.abcdefg.eq(~self.display.abcdefg)
+                ]
 
+            # tm1638
+            if display_type == "tm1638":
+                platform.add_extension(sipeed_tang_primer_25k.tm1638_io())
+                tm1638_pads = platform.request("tm1638")
+                self.tm1638 = TM1638(platform, tm1638_pads, clk_divider=50)
+                
 # Build --------------------------------------------------------------------------------------------
 
 def main():
@@ -201,6 +218,14 @@ def main():
             "mister"
     ], help="SDRAM module model.")
     
+    # Display.
+    parser.add_target_argument("--with-display",      action="store_true",      help="Enable seven segment display module.")
+    parser.add_target_argument("--display-type",      default="pmod",
+        choices=[
+            "pmod",
+            "tm1638"
+    ], help="Display module type.")
+    
     # Video.
     viopts = parser.target_group.add_mutually_exclusive_group()
     viopts.add_argument("--with-video-colorbars",   action="store_true", help="Enable Video ColoBars (HDMI).")
@@ -215,6 +240,8 @@ def main():
         with_spi_flash = args.with_spi_flash,
         with_sdram     = args.with_sdram,
         sdram_model    = args.sdram_model,
+        with_display   = args.with_display,
+        display_type   = args.display_type,
         **parser.soc_argdict
     )
     builder = Builder(soc, **parser.builder_argdict)
